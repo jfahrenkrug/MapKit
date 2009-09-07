@@ -10,6 +10,8 @@
     MKMapScene      _scene              @accessors(property=scene);
     BOOL            _mapReady;
     BOOL            _googleAjaxLoaded;
+    id delegate @accessors;
+    JSObject _dragFunctions;
 }
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey
@@ -17,6 +19,7 @@
     _apiKey = apiKey;
     if (self = [super initWithFrame:aFrame]) {
         _scene = [[MKMapScene alloc] initWithMapView:self];
+        _dragFunctions = {};
 
         var bounds = [self bounds];
         _DOMMapElement = document.createElement('div');
@@ -49,8 +52,8 @@
             [self createMap];
         }
     };
-    // Load Google Maps API v2.160
-    google.load('maps', '2.160', {callback: callback});
+    // Load Google Maps API v2.173
+    google.load('maps', '2.173', {callback: callback});
 }
 
 - (void)createMap
@@ -67,26 +70,28 @@
     _gMap.setUIToDefault();
     _gMap.setCenter(new GLatLng(52, -1), 8);
     _gMap.enableContinuousZoom();
+    //_gMap.enableGoogleBar();
 
 
     // Horrible hack to fix dragging of th emap
-    function startDrag(ev)
+    _dragFunctions.startDrag = function(ev)
     {
         if (_gMap._dragging) {
             return;
         }
         _gMap._dragging = true;
         _gMap._draggingHandlers = [
-            GEvent.addDomListener(document.body, 'mousemove', doDrag),
-            GEvent.addDomListener(document.body, 'mouseup', endDrag)
+            GEvent.addDomListener(document.body, 'mousemove', _dragFunctions.doDrag),
+            GEvent.addDomListener(document.body, 'mouseup', _dragFunctions.endDrag)
         ];
         _gMap._dragStartLocation = new GPoint(ev.clientX, ev.clientY);
         _gMap._dragStartCenter   = _gMap.fromLatLngToDivPixel(_gMap.getCenter());
-    }
-    function doDrag(ev)
+    };
+    
+    _dragFunctions.doDrag = function(ev)
     {
         if (!_gMap._dragging) {
-            endDrag(ev);
+            _dragFunctions.endDrag(ev);
             return;
         }
 
@@ -97,13 +102,15 @@
         var y = _gMap._dragStartCenter.y - y_diff;
 
         var newCenter = new GPoint(x, y);
+        
         var destination = _gMap.fromDivPixelToLatLng(newCenter);
 
         _gMap.setCenter(destination);
         _gMap._dragStartLocation = currentLocation;
         _gMap._dragStartCenter   = _gMap.fromLatLngToDivPixel(_gMap.getCenter());
-    }
-    function endDrag(ev)
+    };
+    
+    _dragFunctions.endDrag = function(ev)
     {
         if (_gMap._draggingHandlers) {
             for (var i=0; i<_gMap._draggingHandlers.length; i++) {
@@ -114,16 +121,20 @@
         if (_gMap._dragging) {
             delete _gMap._dragging;
         }
-    }
+    };
 
 
     var dragNode = _DOMMapElement.firstChild.firstChild;
-    GEvent.addDomListener(dragNode, 'mousedown', startDrag);
+    GEvent.addDomListener(dragNode, 'mousedown', _dragFunctions.startDrag);
 
     // Hack to get mouse up event to work
     GEvent.addDomListener(document.body, 'mouseup', function() { GEvent.trigger(window, 'mouseup'); });
 
     _mapReady = YES;
+    
+    if (delegate && [delegate respondsToSelector:@selector(mapViewIsReady:)]) {
+        [delegate mapViewIsReady:self];
+    }
 }
 - (void)setFrameSize:(CGSize)aSize
 {
@@ -158,6 +169,10 @@
 - (void)addMapItem:(MKMapItem)mapItem
 {
     [mapItem addToMapView:self];
+}
+
+- (BOOL)isMapReady {
+    return _mapReady == YES;
 }
 
 @end
