@@ -60,9 +60,10 @@
     if (aConnection == _readConnection) {
         var aData = aData.replace('while(1);', '');
         var mapItems = CPJSObjectCreateWithJSON(aData);
+        var gm = [MKMapView gmNamespace];
         for (var i in mapItems) {
             var mapItem = mapItems[i];
-            [self addMapItem:[[MKMarker alloc] initAtLocation:new GLatLng(mapItem.anchor.y, mapItem.anchor.x)]];
+            [self addMapItem:[[MKMarker alloc] initAtLocation:new gm.LatLng(mapItem.anchor.y, mapItem.anchor.x)]];
         }
     }
 }

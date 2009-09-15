@@ -1,10 +1,12 @@
 @import <AppKit/CPView.j>
 @import "MKMapItem.j"
+@import "MKMapView.j"
+@import "MKLocation.j"
 
 @implementation MKMarker : MKMapItem
 {
-    GMarker     _gMarker    @accessors(property=gMarker);
-    GLatLng     _location   @accessors(property=location);
+    Marker      _gMarker    @accessors(property=gMarker);
+    MKLocation  _location   @accessors(property=location);
 }
 
 + (MKMarker)marker
@@ -12,7 +14,7 @@
     return [[MKMarker alloc] init];
 }
 
-- (id)initAtLocation:(GLatLng)aLocation
+- (id)initAtLocation:(MKLocation)aLocation
 {
     if (self = [super init]) {
         _location = aLocation;
@@ -20,26 +22,28 @@
         var flags = ['red', 'blue', 'green', 'black', 'yellow'];
         // Pick a random flag
         var colour = flags[Math.floor(Math.random()*5)];
+        var gm = [MKMapView gmNamespace];
 
-        var flagIcon = new GIcon();
-        flagIcon.image = "MapKit/Resources/flag-" + colour + ".png";
-        flagIcon.shadow = "MapKit/Resources/flag-shadow.png";
-        flagIcon.iconSize = new GSize(32, 32);
-        flagIcon.shadowSize = new GSize(43, 32);
-        flagIcon.iconAnchor = new GPoint(4, 30);
-        flagIcon.infoWindowAnchor = new GPoint(4, 1);
+        var flagIcon = new gm.Icon();
+        flagIcon.image = "Frameworks/MapKit/Resources/flag-" + colour + ".png";
+        flagIcon.shadow = "Frameworks/MapKit/Resources/flag-shadow.png";
+        flagIcon.iconSize = new gm.Size(32, 32);
+        flagIcon.shadowSize = new gm.Size(43, 32);
+        flagIcon.iconAnchor = new gm.Point(4, 30);
+        flagIcon.infoWindowAnchor = new gm.Point(4, 1);
+        
         
 		var markerOptions = { icon: flagIcon, draggable:true };
-        _gMarker = new GMarker(aLocation, markerOptions);
+        _gMarker = new gm.Marker([aLocation googleLatLng], markerOptions);
 
-        GEvent.addListener(_gMarker, 'dragend', function() { [self updateLocation]; });
+        gm.Event.addListener(_gMarker, 'dragend', function() { [self updateLocation]; });
     }
     return self;
 }
 
 - (void)updateLocation
 {
-    _location = _gMarker.getLatLng();
+    _location = [[MKLocation alloc] initWithLatLng:_gMarker.getLatLng()];
 }
 
 - (void)addToMapView:(MKMapView)mapView
@@ -50,7 +54,7 @@
 
 - (void)encodeWithCoder:(CPCoder)coder
 {
-    [coder encodeObject:[_location.lat(), _location.lng()] forKey:@"location"];
+    [coder encodeObject:[[_location latitude], [_location longitude]] forKey:@"location"];
 }
 
 @end

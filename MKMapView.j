@@ -1,8 +1,29 @@
 @import <AppKit/CPView.j>
 @import "MKMapScene.j"
 @import "MKMarker.j"
+@import "MKLocation.j"
+@import "MKPolyline.j"
 
-@implementation MKMapView : CPView
+/* a "class" variable that will hold the domWin.google.maps object/"namespace" */
+var gmNamespace = nil;
+
+@implementation CPWebView(ScrollFixes) {
+    - (void)loadHTMLStringWithoutMessingUpScrollbars:(CPString)aString
+    {
+        [self _startedLoading];
+        
+        _ignoreLoadStart = YES;
+        _ignoreLoadEnd = NO;
+        
+        _url = null;
+        _html = aString;
+        
+        [self _load];
+    }
+}
+@end
+
+@implementation MKMapView : CPWebView
 {
     CPString        _apiKey;
     DOMElement      _DOMMapElement;
@@ -11,124 +32,60 @@
     BOOL            _mapReady;
     BOOL            _googleAjaxLoaded;
     id delegate @accessors;
-    JSObject _dragFunctions;
+    BOOL _alreadySetUp;
 }
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey
 {
     _apiKey = apiKey;
+    _alreadySetUp = false;
     if (self = [super initWithFrame:aFrame]) {
         _scene = [[MKMapScene alloc] initWithMapView:self];
-        _dragFunctions = {};
 
         var bounds = [self bounds];
-        _DOMMapElement = document.createElement('div');
-        with (_DOMMapElement.style) {
-            position = "absolute";
-            left = "0px";
-            top = "0px";
-            width = "100%";
-            height = "100%";
-        }
-        _DOMElement.appendChild(_DOMMapElement);
-
-        // Piggy back on the CPJSONPConnection stuff to load in the Google AJAX loader.
-        var url = 'http://www.google.com/jsapi?key=' + _apiKey;
-        var request = [CPURLRequest requestWithURL:url];
-        var conn = [CPJSONPConnection sendRequest:request callback:"callback" delegate:self];
+        
+        [self setFrameLoadDelegate:self];
+        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head></head><body><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%;'></div></body></html>"];
     }
 
     return self;
 }
 
-- (void)connection:(CPJSONPConnection)aConnection didReceiveData:(Object)data
-{
-    _googleAjaxLoaded = YES;
-    //console.log("Google AJAX API has loaded");
-    // Google API has loaded, now load Google Maps API. The main reason for
-    // using this is to avoid polluting the global namespace with G* objects
-    function callback() {
-        if (_superview) {
+- (void)webView:(CPWebView)aWebView didFinishLoadForFrame:(id)aFrame {
+    if (!_alreadySetUp) {
+        _alreadySetUp = true;
+    } else {
+        console.log('did finish');
+    
+        var wso = [self windowScriptObject];
+        var domWin = [self DOMWindow];
+        var googleScriptElement = domWin.document.createElement('script');
+        googleScriptElement.src='http://www.google.com/jsapi?key=' + _apiKey + "&autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.173%22%2C%22callback%22%3A%22mapsJsLoaded%22%7D%5D%7D";
+    
+        domWin.mapsJsLoaded = function () {
+            //alert('mapsJsLoaded!');
+            _googleAjaxLoaded = YES;
+            _DOMMapElement = domWin.document.getElementById('MKMapViewDiv');
             [self createMap];
-        }
-    };
-    // Load Google Maps API v2.173
-    google.load('maps', '2.173', {callback: callback});
+        };
+        domWin.document.getElementsByTagName('head')[0].appendChild(googleScriptElement);
+    }
 }
 
 - (void)createMap
 {
-    var GEvent  = google.maps.Event,
-        GMap2   = google.maps.Map2,
-        GLatLng = google.maps.LatLng,
-        GPoint  = google.maps.Point;
+    var domWin = [self DOMWindow];
+    //remember the google maps namespace
+    gmNamespace = domWin.google.maps;
 
     //console.log("Creating map");
-    _gMap = new GMap2(_DOMMapElement);
+    _gMap = new gmNamespace.Map2(_DOMMapElement);
     //_gMap.addMapType(G_SATELLITE_3D_MAP);
-    _gMap.setMapType(G_PHYSICAL_MAP);
+    _gMap.setMapType(gmNamespace.G_PHYSICAL_MAP);
     _gMap.setUIToDefault();
-    _gMap.setCenter(new GLatLng(52, -1), 8);
     _gMap.enableContinuousZoom();
-    //_gMap.enableGoogleBar();
-
-
-    // Horrible hack to fix dragging of th emap
-    _dragFunctions.startDrag = function(ev)
-    {
-        if (_gMap._dragging) {
-            return;
-        }
-        _gMap._dragging = true;
-        _gMap._draggingHandlers = [
-            GEvent.addDomListener(document.body, 'mousemove', _dragFunctions.doDrag),
-            GEvent.addDomListener(document.body, 'mouseup', _dragFunctions.endDrag)
-        ];
-        _gMap._dragStartLocation = new GPoint(ev.clientX, ev.clientY);
-        _gMap._dragStartCenter   = _gMap.fromLatLngToDivPixel(_gMap.getCenter());
-    };
-    
-    _dragFunctions.doDrag = function(ev)
-    {
-        if (!_gMap._dragging) {
-            _dragFunctions.endDrag(ev);
-            return;
-        }
-
-        var currentLocation = new GPoint(ev.clientX, ev.clientY);
-        var x_diff = currentLocation.x - _gMap._dragStartLocation.x;
-        var y_diff = currentLocation.y - _gMap._dragStartLocation.y;
-        var x = _gMap._dragStartCenter.x - x_diff;
-        var y = _gMap._dragStartCenter.y - y_diff;
-
-        var newCenter = new GPoint(x, y);
-        
-        var destination = _gMap.fromDivPixelToLatLng(newCenter);
-
-        _gMap.setCenter(destination);
-        _gMap._dragStartLocation = currentLocation;
-        _gMap._dragStartCenter   = _gMap.fromLatLngToDivPixel(_gMap.getCenter());
-    };
-    
-    _dragFunctions.endDrag = function(ev)
-    {
-        if (_gMap._draggingHandlers) {
-            for (var i=0; i<_gMap._draggingHandlers.length; i++) {
-                GEvent.removeListener(_gMap._draggingHandlers[i]);
-            }
-            delete _gMap._draggingHandlers;
-        }
-        if (_gMap._dragging) {
-            delete _gMap._dragging;
-        }
-    };
-
-
-    var dragNode = _DOMMapElement.firstChild.firstChild;
-    GEvent.addDomListener(dragNode, 'mousedown', _dragFunctions.startDrag);
-
-    // Hack to get mouse up event to work
-    GEvent.addDomListener(document.body, 'mouseup', function() { GEvent.trigger(window, 'mouseup'); });
+    _gMap.setCenter(new gmNamespace.LatLng(52, -1), 8);
+    _gMap.setZoom(2);
 
     _mapReady = YES;
     
@@ -145,6 +102,16 @@
     }
 }
 
+/* Overriding CPWebView's implementation */
+- (BOOL)_resizeWebFrame {
+    var width = [self bounds].size.width,
+        height = [self bounds].size.width;
+
+    _iframe.setAttribute("width", width);
+    _iframe.setAttribute("height", height);
+
+    [_frameView setFrameSize:CGSizeMake(width, height)];
+}
 
 - (void)viewDidMoveToSuperview
 {
@@ -154,11 +121,17 @@
     [super viewDidMoveToSuperview];
 }
 
-- (MKMarker)addMarker:(MKMarker)marker atLocation:(GLatLng)location
+- (void)setCenter:(MKLocation)aLocation {
+    if (_mapReady) {
+        _gMap.setCenter([aLocation googleLatLng]);
+    }
+}
+
+- (MKMarker)addMarker:(MKMarker)aMarker atLocation:(MKLocation)aLocation
 {
     if (_mapReady) {
-        var gMarker = [marker gMarker];
-        gMarker.setLatLng(location);
+        var gMarker = [aMarker gMarker];
+        gMarker.setLatLng([aLocation googleLatLng]);
         _gMap.addOverlay(gMarker);
     } else {
         // TODO some sort of queue?
@@ -171,8 +144,8 @@
     [mapItem addToMapView:self];
 }
 
-- (BOOL)isMapReady {
-    return _mapReady == YES;
++ (JSObject)gmNamespace {
+    return gmNamespace;
 }
 
 @end
