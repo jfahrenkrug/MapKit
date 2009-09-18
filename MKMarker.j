@@ -7,6 +7,11 @@
 {
     Marker      _gMarker    @accessors(property=gMarker);
     MKLocation  _location   @accessors(property=location);
+    BOOL        _draggable  @accessors(property=draggable);
+    BOOL        _withShadow  @accessors(property=withShadow);
+    CPString    _iconUrl    @accessors(property=iconUrl);
+    CPString    _shadowUrl  @accessors(property=shadowUrl);
+    id          _delegate  @accessors(property=delegate);
 }
 
 + (MKMarker)marker
@@ -18,25 +23,8 @@
 {
     if (self = [super init]) {
         _location = aLocation;
-
-        var flags = ['red', 'blue', 'green', 'black', 'yellow'];
-        // Pick a random flag
-        var colour = flags[Math.floor(Math.random()*5)];
-        var gm = [MKMapView gmNamespace];
-
-        var flagIcon = new gm.Icon();
-        flagIcon.image = "Frameworks/MapKit/Resources/flag-" + colour + ".png";
-        flagIcon.shadow = "Frameworks/MapKit/Resources/flag-shadow.png";
-        flagIcon.iconSize = new gm.Size(32, 32);
-        flagIcon.shadowSize = new gm.Size(43, 32);
-        flagIcon.iconAnchor = new gm.Point(4, 30);
-        flagIcon.infoWindowAnchor = new gm.Point(4, 1);
-        
-        
-		var markerOptions = { icon: flagIcon, draggable:true };
-        _gMarker = new gm.Marker([aLocation googleLatLng], markerOptions);
-
-        gm.Event.addListener(_gMarker, 'dragend', function() { [self updateLocation]; });
+        _withShadow = YES;
+        _draggable = YES;
     }
     return self;
 }
@@ -44,11 +32,177 @@
 - (void)updateLocation
 {
     _location = [[MKLocation alloc] initWithLatLng:_gMarker.getLatLng()];
+    
+    if (_delegate && [_delegate respondsToSelector:@selector(mapMarker:didMoveToLocation:)]) {
+        [_delegate mapMarker:self didMoveToLocation:_location];
+    }
 }
+
+/*!
+    Sets the icon URL based on this url pattern:
+    http://maps.google.com/mapfiles/ms/micons/<anIconName>.png
+    
+    Some examples:
+    
+    POI
+    arts
+    bar
+    blue-dot
+    blue-pushpin
+    blue
+    bus
+    cabs
+    camera
+    campfire
+    campground
+    caution
+    coffeehouse
+    convienancestore
+    cycling
+    dollar
+    drinking_water
+    earthquake
+    electronics
+    euro
+    fallingrocks
+    ferry
+    firedept
+    fishing
+    flag
+    gas
+    golfer
+    green-dot
+    green
+    grn-pushpin
+    grocerystore
+    groecerystore
+    helicopter
+    hiker
+    homegardenbusiness
+    horsebackriding
+    hospitals
+    hotsprings
+    info
+    info_circle
+    landmarks-jp
+    lightblue
+    lodging
+    ltblu-pushpin
+    ltblue-dot
+    man
+    marina
+    mechanic
+    motorcycling
+    movies
+    orange-dot
+    orange
+    parkinglot
+    partly_cloudy
+    pharmacy-us
+    phone
+    picnic
+    pink-dot
+    pink-pushpin
+    pink
+    plane
+    police
+    postoffice-jp
+    postoffice-us
+    purple-dot
+    purple-pushpin
+    purple
+    question
+    rail
+    rainy
+    rangerstation
+    realestate
+    recycle
+    red-dot
+    red-pushpin
+    red
+    restaurant
+    sailing
+    salon
+    shopping
+    ski
+    ski
+    snack_bar
+    snowflake_simple
+    sportvenue
+    subway
+    sunny
+    swimming
+    toilets
+    trail
+    tram
+    tree
+    truck
+    volcano
+    water
+    waterfalls
+    webcam
+    wheel_chair_accessible
+    woman
+    yellow-dot
+    yellow
+    yen
+    ylw-pushpin
+    
+    You can find a list of official google maps icons here:
+    http://www.visual-case.it/cgi-bin/vc/GMapsIcons.pl
+*/
+- (void)setGoogleIcon:(CPString)anIconName withShadow:(BOOL)withShadow
+{
+    _withShadow = withShadow;
+    
+    if (anIconName) {
+        _iconUrl = "http://maps.google.com/mapfiles/ms/micons/" + anIconName + ".png"
+        
+        if (withShadow) {
+            if (anIconName.match(/dot/) || anIconName.match(/(blue|green|lightblue|orange|pink|purple|red|yellow)$/)) {
+                _shadowUrl = "http://maps.google.com/mapfiles/ms/micons/msmarker.shadow.png";
+            } else if (anIconName.match(/pushpin/)) {
+                _shadowUrl = "http://maps.google.com/mapfiles/ms/micons/pushpin_shadow.png";
+            } else {
+                _shadowUrl = "http://maps.google.com/mapfiles/ms/micons/" + anIconName + ".shadow.png";
+            }
+        }
+    } else {
+        _iconUrl = nil;
+        _shadowUrl = "http://maps.google.com/mapfiles/ms/micons/msmarker.shadow.png"; //default shadow
+    }
+}
+
+- (void)setGoogleIcon:(CPString)anIconName
+{
+    [self setGoogleIcon:anIconName withShadow:YES];
+}
+
 
 - (void)addToMapView:(MKMapView)mapView
 {
     var googleMap = [mapView gMap];
+    var gm = [MKMapView gmNamespace];
+    
+    var icon = new gm.Icon(gm.DEFAULT_ICON);
+    
+    // set a different icon if the _iconUrl is set
+    if (_iconUrl) {
+        icon.image = _iconUrl;
+        icon.iconSize = new gm.Size(32, 32);
+        icon.iconAnchor = new gm.Point(16, 32);
+    }
+    
+    // set the shadow
+    if (_withShadow && _shadowUrl) {
+        icon.shadow = _shadowUrl;
+        icon.shadowSize = new gm.Size(59, 32);
+    }
+    
+    var markerOptions = { "icon":icon, "clickable":false, "draggable":_draggable };    
+    _gMarker = new gm.Marker([_location googleLatLng], markerOptions);
+
+    gm.Event.addListener(_gMarker, 'dragend', function() { [self updateLocation]; });
     googleMap.addOverlay(_gMarker);
 }
 

@@ -11,13 +11,13 @@ var gmNamespace = nil;
     - (void)loadHTMLStringWithoutMessingUpScrollbars:(CPString)aString
     {
         [self _startedLoading];
-        
+    
         _ignoreLoadStart = YES;
         _ignoreLoadEnd = NO;
-        
+    
         _url = null;
         _html = aString;
-        
+    
         [self _load];
     }
 }
@@ -45,7 +45,7 @@ var gmNamespace = nil;
         var bounds = [self bounds];
         
         [self setFrameLoadDelegate:self];
-        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head></head><body><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%;'></div></body></html>"];
+        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head></head><body style='padding:0px; margin:0px'><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%'></div></body></html>"];
     }
 
     return self;
@@ -54,9 +54,7 @@ var gmNamespace = nil;
 - (void)webView:(CPWebView)aWebView didFinishLoadForFrame:(id)aFrame {
     if (!_alreadySetUp) {
         _alreadySetUp = true;
-    } else {
-        console.log('did finish');
-    
+    } else {    
         var wso = [self windowScriptObject];
         var domWin = [self DOMWindow];
         var googleScriptElement = domWin.document.createElement('script');
@@ -75,17 +73,25 @@ var gmNamespace = nil;
 - (void)createMap
 {
     var domWin = [self DOMWindow];
-    //remember the google maps namespace
-    gmNamespace = domWin.google.maps;
+    //remember the google maps namespace, but only once because it's a class variable
+    if (!gmNamespace) {
+        gmNamespace = domWin.google.maps;
+    }
+    
+    // for some things the current google namespace needs to be used...
+    var localGmNamespace = domWin.google.maps;
 
     //console.log("Creating map");
-    _gMap = new gmNamespace.Map2(_DOMMapElement);
+    _gMap = new localGmNamespace.Map2(_DOMMapElement);
     //_gMap.addMapType(G_SATELLITE_3D_MAP);
-    _gMap.setMapType(gmNamespace.G_PHYSICAL_MAP);
+    _gMap.setMapType(localGmNamespace.G_PHYSICAL_MAP);
     _gMap.setUIToDefault();
     _gMap.enableContinuousZoom();
-    _gMap.setCenter(new gmNamespace.LatLng(52, -1), 8);
-    _gMap.setZoom(2);
+    _gMap.setCenter(new localGmNamespace.LatLng(52, -1), 8);
+    _gMap.setZoom(6);
+    
+    // Hack to get mouse up event to work
+    localGmNamespace.Event.addDomListener(document.body, 'mouseup', function() { try { localGmNamespace.Event.trigger(domWin, 'mouseup'); } catch(e){} });
 
     _mapReady = YES;
     
@@ -127,6 +133,12 @@ var gmNamespace = nil;
     }
 }
 
+- (void)setZoom:(int)zoomLevel {
+    if (_mapReady) {
+        _gMap.setZoom(zoomLevel);
+    }
+}
+
 - (MKMarker)addMarker:(MKMarker)aMarker atLocation:(MKLocation)aLocation
 {
     if (_mapReady) {
@@ -139,9 +151,21 @@ var gmNamespace = nil;
     return marker;
 }
 
+- (void)clearOverlays 
+{
+    if (_mapReady) {
+        _gMap.clearOverlays();
+    }
+}
+
 - (void)addMapItem:(MKMapItem)mapItem
 {
     [mapItem addToMapView:self];
+}
+
+- (BOOL)isMapReady 
+{
+    return _mapReady;
 }
 
 + (JSObject)gmNamespace {
