@@ -32,40 +32,41 @@ var gmNamespace = nil;
     BOOL            _mapReady;
     BOOL            _googleAjaxLoaded;
     id delegate @accessors;
-    BOOL _alreadySetUp;
 }
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey
 {
     _apiKey = apiKey;
-    _alreadySetUp = false;
     if (self = [super initWithFrame:aFrame]) {
         _scene = [[MKMapScene alloc] initWithMapView:self];
 
         var bounds = [self bounds];
         
         [self setFrameLoadDelegate:self];
-        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head></head><body style='padding:0px; margin:0px'><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%'></div></body></html>"];
+        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head><script type=\"text/javascript\" src=\"http://www.google.com/jsapi?key=" + _apiKey + "\"></script></head><body style='padding:0px; margin:0px'><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%'></div></body></html>"];
     }
 
     return self;
 }
 
 - (void)webView:(CPWebView)aWebView didFinishLoadForFrame:(id)aFrame {
-    if (!_alreadySetUp) {
-        _alreadySetUp = true;
-    } else {    
-        var wso = [self windowScriptObject];
-        var domWin = [self DOMWindow];
-        var googleScriptElement = domWin.document.createElement('script');
-        googleScriptElement.src='http://www.google.com/jsapi?key=' + _apiKey + "&autoload=%7B%22modules%22%3A%5B%7B%22name%22%3A%22maps%22%2C%22version%22%3A%222.173%22%2C%22callback%22%3A%22mapsJsLoaded%22%7D%5D%7D";
+    [self loadGoogleMapsWhenReady];
+}
+
+- (void)loadGoogleMapsWhenReady() {
+    var domWin = [self DOMWindow];
     
+    if (typeof(domWin.google) === 'undefined') {
+        domWin.window.setTimeout(function() {[self loadGoogleMapsWhenReady];}, 100);
+    } else {
+        var googleScriptElement = domWin.document.createElement('script');
         domWin.mapsJsLoaded = function () {
             //alert('mapsJsLoaded!');
             _googleAjaxLoaded = YES;
             _DOMMapElement = domWin.document.getElementById('MKMapViewDiv');
             [self createMap];
         };
+        googleScriptElement.innerHTML = "google.load('maps', '2.173', {'callback': mapsJsLoaded});"
         domWin.document.getElementsByTagName('head')[0].appendChild(googleScriptElement);
     }
 }
