@@ -32,6 +32,7 @@ var gmNamespace = nil;
     BOOL            _mapReady;
     BOOL            _googleAjaxLoaded;
     id delegate @accessors;
+    BOOL hasLoaded;
 }
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey
@@ -50,7 +51,11 @@ var gmNamespace = nil;
 }
 
 - (void)webView:(CPWebView)aWebView didFinishLoadForFrame:(id)aFrame {
-    [self loadGoogleMapsWhenReady];
+    // this is called twice for some reason
+    if(!hasLoaded) {
+        [self loadGoogleMapsWhenReady];
+    }
+    hasLoaded = YES;
 }
 
 - (void)loadGoogleMapsWhenReady() {
@@ -112,7 +117,7 @@ var gmNamespace = nil;
 /* Overriding CPWebView's implementation */
 - (BOOL)_resizeWebFrame {
     var width = [self bounds].size.width,
-        height = [self bounds].size.width;
+        height = [self bounds].size.height;
 
     _iframe.setAttribute("width", width);
     _iframe.setAttribute("height", height);
