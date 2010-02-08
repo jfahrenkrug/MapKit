@@ -12,6 +12,8 @@
     CPString    _iconUrl    @accessors(property=iconUrl);
     CPString    _shadowUrl  @accessors(property=shadowUrl);
     id          _delegate  @accessors(property=delegate);
+    CPString    _infoWindowHTML;
+    CPDictionary _eventHandlers;
 }
 
 + (MKMarker)marker
@@ -178,6 +180,60 @@
     [self setGoogleIcon:anIconName withShadow:YES];
 }
 
+- (void)openInfoWindow
+{
+    if (_gMarker)
+    {
+        _gMarker.closeInfoWindow();
+        _gMarker.openInfoWindowHtml(_infoWindowHTML);
+    }
+}
+
+- (void)closeInfoWindow
+{
+    if (_gMarker)
+    {
+        _gMarker.closeInfoWindow();
+    }
+}
+
+- (void)setInfoWindowHTML:(CPString)someHTML
+{
+   [self setInfoWindowHTML:someHTML openOnClick:NO];
+}
+
+- (void)setInfoWindowHTML:(CPString)someHTML openOnClick:(BOOL)shouldOpenOnClick
+{
+    _infoWindowHTML = someHTML;
+    
+    if (shouldOpenOnClick)
+    {
+        [self addEventForName:@"click" withFunction:function() {[self openInfoWindow];}];
+    }
+}
+
+- (CPString)infoWindowHTML
+{
+    return _infoWindowHTML;
+}
+
+- (void)addEventForName:(CPString)anEvent withFunction:(JSObject)aFunction
+{
+    if (!_eventHandlers)
+    {
+        _eventHandlers = {};
+    }
+    
+    // remember the event handler
+    _eventHandlers[anEvent] = aFunction;
+    
+    // if we have a marker, we can add it right away...
+    if (_gMarker)
+    {
+       [MKMapView gmNamespace].Event.addListener(_gMarker, anEvent, aFunction);
+    }
+}
+
 
 - (void)addToMapView:(MKMapView)mapView
 {
@@ -187,20 +243,38 @@
     var icon = new gm.Icon(gm.DEFAULT_ICON);
     
     // set a different icon if the _iconUrl is set
-    if (_iconUrl) {
+    if (_iconUrl) 
+    {
         icon.image = _iconUrl;
         icon.iconSize = new gm.Size(32, 32);
         icon.iconAnchor = new gm.Point(16, 32);
     }
     
     // set the shadow
-    if (_withShadow && _shadowUrl) {
+    if (_withShadow && _shadowUrl) 
+    {
         icon.shadow = _shadowUrl;
         icon.shadowSize = new gm.Size(59, 32);
     }
-    
+        
     var markerOptions = { "icon":icon, "clickable":false, "draggable":_draggable };    
     _gMarker = new gm.Marker([_location googleLatLng], markerOptions);
+    
+    // add the infowindow html
+    if (_infoWindowHTML)
+    {
+        _gMarker.openInfoWindowHtml(_infoWindowHTML);
+    }
+    
+    // are there events that should be added?
+    if (_eventHandlers)
+    {
+        for (var key in _eventHandlers)
+        {
+            var func = _eventHandlers[key];
+            gm.Event.addListener(_gMarker, key, func);
+        }
+    }
 
     gm.Event.addListener(_gMarker, 'dragend', function() { [self updateLocation]; });
     googleMap.addOverlay(_gMarker);

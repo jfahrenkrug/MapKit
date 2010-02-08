@@ -71,7 +71,7 @@ var gmNamespace = nil;
             _DOMMapElement = domWin.document.getElementById('MKMapViewDiv');
             [self createMap];
         };
-        googleScriptElement.innerHTML = "google.load('maps', '2.173', {'callback': mapsJsLoaded});"
+        googleScriptElement.innerHTML = "google.load('maps', '2', {'callback': mapsJsLoaded});"
         domWin.document.getElementsByTagName('head')[0].appendChild(googleScriptElement);
     }
 }
