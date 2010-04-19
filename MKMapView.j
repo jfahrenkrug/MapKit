@@ -174,6 +174,16 @@ var gmNamespace = nil;
     return _mapReady;
 }
 
+- (JSObject)gmNamespace {
+    var domWin = [self DOMWindow];
+    
+    if (domWin && _mapReady) {
+        return domWin.google.maps;
+    }
+    
+    return nil;
+}
+
 + (JSObject)gmNamespace {
     return gmNamespace;
 }
