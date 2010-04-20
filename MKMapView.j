@@ -7,7 +7,8 @@
 /* a "class" variable that will hold the domWin.google.maps object/"namespace" */
 var gmNamespace = nil;
 
-@implementation CPWebView(ScrollFixes) {
+@implementation CPWebView(ScrollFixes) 
+{
     - (void)loadHTMLStringWithoutMessingUpScrollbars:(CPString)aString
     {
         [self _startedLoading];
@@ -31,14 +32,31 @@ var gmNamespace = nil;
     MKMapScene      _scene              @accessors(property=scene);
     BOOL            _mapReady;
     BOOL            _googleAjaxLoaded;
-    id delegate @accessors;
-    BOOL hasLoaded;
+    id              delegate            @accessors;
+    BOOL            hasLoaded;
+    MKLocation      _center;
+    CPString        _centerName;
+    int             _zoomLevel;
 }
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey
 {
+    return [self initWithFrame:aFrame apiKey:apiKey center:nil];
+}
+
+- (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey center:(MKLocation)aLocation
+{
     _apiKey = apiKey;
-    if (self = [super initWithFrame:aFrame]) {
+    _center = aLocation;
+    _zoomLevel = 6;
+    
+    if (!_center)
+    {
+        _center = [MKLocation locationWithLatitude:52 andLongitude:-1];
+    }
+    
+    if (self = [super initWithFrame:aFrame]) 
+    {
         _scene = [[MKMapScene alloc] initWithMapView:self];
 
         var bounds = [self bounds];
@@ -50,22 +68,29 @@ var gmNamespace = nil;
     return self;
 }
 
-- (void)webView:(CPWebView)aWebView didFinishLoadForFrame:(id)aFrame {
+- (void)webView:(CPWebView)aWebView didFinishLoadForFrame:(id)aFrame 
+{
     // this is called twice for some reason
-    if(!hasLoaded) {
+    if(!hasLoaded) 
+    {
         [self loadGoogleMapsWhenReady];
     }
     hasLoaded = YES;
 }
 
-- (void)loadGoogleMapsWhenReady() {
+- (void)loadGoogleMapsWhenReady() 
+{
     var domWin = [self DOMWindow];
     
-    if (typeof(domWin.google) === 'undefined') {
+    if (typeof(domWin.google) === 'undefined') 
+    {
         domWin.window.setTimeout(function() {[self loadGoogleMapsWhenReady];}, 100);
-    } else {
+    } 
+    else 
+    {
         var googleScriptElement = domWin.document.createElement('script');
-        domWin.mapsJsLoaded = function () {
+        domWin.mapsJsLoaded = function () 
+        {
             //alert('mapsJsLoaded!');
             _googleAjaxLoaded = YES;
             _DOMMapElement = domWin.document.getElementById('MKMapViewDiv');
@@ -80,7 +105,8 @@ var gmNamespace = nil;
 {
     var domWin = [self DOMWindow];
     //remember the google maps namespace, but only once because it's a class variable
-    if (!gmNamespace) {
+    if (!gmNamespace) 
+    {
         gmNamespace = domWin.google.maps;
     }
     
@@ -93,15 +119,16 @@ var gmNamespace = nil;
     _gMap.setMapType(localGmNamespace.G_PHYSICAL_MAP);
     _gMap.setUIToDefault();
     _gMap.enableContinuousZoom();
-    _gMap.setCenter(new localGmNamespace.LatLng(52, -1), 8);
-    _gMap.setZoom(6);
+    _gMap.setCenter([_center googleLatLng], 8);
+    _gMap.setZoom(_zoomLevel);
     
     // Hack to get mouse up event to work
     localGmNamespace.Event.addDomListener(document.body, 'mouseup', function() { try { localGmNamespace.Event.trigger(domWin, 'mouseup'); } catch(e){} });
 
     _mapReady = YES;
     
-    if (delegate && [delegate respondsToSelector:@selector(mapViewIsReady:)]) {
+    if (delegate && [delegate respondsToSelector:@selector(mapViewIsReady:)]) 
+    {
         [delegate mapViewIsReady:self];
     }
 }
@@ -109,13 +136,15 @@ var gmNamespace = nil;
 {
     [super setFrameSize:aSize];
     var bounds = [self bounds];
-    if (_gMap) {
+    if (_gMap) 
+    {
         _gMap.checkResize();
     }
 }
 
 /* Overriding CPWebView's implementation */
-- (BOOL)_resizeWebFrame {
+- (BOOL)_resizeWebFrame 
+{
     var width = [self bounds].size.width,
         height = [self bounds].size.height;
 
@@ -127,31 +156,46 @@ var gmNamespace = nil;
 
 - (void)viewDidMoveToSuperview
 {
-    if (!_mapReady && _googleAjaxLoaded) {
+    if (!_mapReady && _googleAjaxLoaded) 
+    {
         [self createMap];
     }
     [super viewDidMoveToSuperview];
 }
 
-- (void)setCenter:(MKLocation)aLocation {
-    if (_mapReady) {
+- (void)setCenter:(MKLocation)aLocation 
+{
+    _center = aLocation;
+    if (_mapReady) 
+    {
         _gMap.setCenter([aLocation googleLatLng]);
     }
 }
 
-- (void)setZoom:(int)zoomLevel {
-    if (_mapReady) {
-        _gMap.setZoom(zoomLevel);
+- (MKLocation)center 
+{
+    return _center;
+}
+
+- (void)setZoom:(int)aZoomLevel 
+{
+    _zoomLevel = aZoomLevel;
+    if (_mapReady) 
+    {
+        _gMap.setZoom(_zoomLevel);
     }
 }
 
 - (MKMarker)addMarker:(MKMarker)aMarker atLocation:(MKLocation)aLocation
 {
-    if (_mapReady) {
+    if (_mapReady) 
+    {
         var gMarker = [aMarker gMarker];
         gMarker.setLatLng([aLocation googleLatLng]);
         _gMap.addOverlay(gMarker);
-    } else {
+    } 
+    else 
+    {
         // TODO some sort of queue?
     }
     return marker;
@@ -159,7 +203,8 @@ var gmNamespace = nil;
 
 - (void)clearOverlays 
 {
-    if (_mapReady) {
+    if (_mapReady) 
+    {
         _gMap.clearOverlays();
     }
 }
@@ -174,17 +219,20 @@ var gmNamespace = nil;
     return _mapReady;
 }
 
-- (JSObject)gmNamespace {
+- (JSObject)gmNamespace 
+{
     var domWin = [self DOMWindow];
     
-    if (domWin && _mapReady) {
+    if (domWin && _mapReady) 
+    {
         return domWin.google.maps;
     }
     
     return nil;
 }
 
-+ (JSObject)gmNamespace {
++ (JSObject)gmNamespace 
+{
     return gmNamespace;
 }
 
