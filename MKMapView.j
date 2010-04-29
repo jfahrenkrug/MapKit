@@ -7,6 +7,9 @@
 /* a "class" variable that will hold the domWin.google.maps object/"namespace" */
 var gmNamespace = nil;
 
+MKLoadingMarkupWhiteSpinner = @"<div style='position: absolute; top:50%; left:50%;'><img src='Frameworks/MapKit/Resources/spinner-white.gif'/></div>";
+MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50%;'><img src='Frameworks/MapKit/Resources/spinner-black.gif'/></div>";
+
 @implementation CPWebView(ScrollFixes) 
 {
     - (void)loadHTMLStringWithoutMessingUpScrollbars:(CPString)aString
@@ -46,6 +49,11 @@ var gmNamespace = nil;
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey center:(MKLocation)aLocation
 {
+    return [self initWithFrame:aFrame apiKey:apiKey center:aLocation loadingMarkup:nil];
+}
+
+- (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey center:(MKLocation)aLocation loadingMarkup:(CPString)someLoadingMarkup
+{
     _apiKey = apiKey;
     _center = aLocation;
     _zoomLevel = 6;
@@ -55,14 +63,20 @@ var gmNamespace = nil;
         _center = [MKLocation locationWithLatitude:52 andLongitude:-1];
     }
     
+    if (!someLoadingMarkup)
+    {
+        someLoadingMarkup = @"";
+    }
+    
     if (self = [super initWithFrame:aFrame]) 
     {
         _scene = [[MKMapScene alloc] initWithMapView:self];
+        _iframe.allowTransparency = true;
 
         var bounds = [self bounds];
         
         [self setFrameLoadDelegate:self];
-        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head><script type=\"text/javascript\" src=\"http://www.google.com/jsapi?key=" + _apiKey + "\"></script></head><body style='padding:0px; margin:0px'><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%'></div></body></html>"];
+        [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head></head><body style='padding:0px; margin:0px; background-color:transparent'><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%'>" + someLoadingMarkup + "</div></body><script type=\"text/javascript\" src=\"http://www.google.com/jsapi?key=" + _apiKey + "\"></script></html>"];
     }
 
     return self;
@@ -114,7 +128,7 @@ var gmNamespace = nil;
     var localGmNamespace = domWin.google.maps;
 
     //console.log("Creating map");
-    _gMap = new localGmNamespace.Map2(_DOMMapElement);
+    _gMap = new localGmNamespace.Map2(_DOMMapElement, {backgroundColor: 'transparent'});
     //_gMap.addMapType(G_SATELLITE_3D_MAP);
     _gMap.setMapType(localGmNamespace.G_PHYSICAL_MAP);
     _gMap.setUIToDefault();
