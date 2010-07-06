@@ -40,6 +40,8 @@ MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50
     MKLocation      _center;
     CPString        _centerName;
     int             _zoomLevel;
+    
+    CPView          _loadingView @accessors(property=loadingView);
 }
 
 - (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey
@@ -52,7 +54,27 @@ MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50
     return [self initWithFrame:aFrame apiKey:apiKey center:aLocation loadingMarkup:nil];
 }
 
-- (id)initWithFrame:(CGRect)aFrame apiKey:(CPString)apiKey center:(MKLocation)aLocation loadingMarkup:(CPString)someLoadingMarkup
+- (id)initWithFrame:(CGRect)aFrame 
+             apiKey:(CPString)apiKey 
+             center:(MKLocation)aLocation 
+      loadingMarkup:(CPString)someLoadingMarkup
+{
+    return [self initWithFrame:aFrame apiKey:apiKey center:aLocation loadingMarkup:someLoadingMarkup loadingView:nil];
+}
+
+- (id)initWithFrame:(CGRect)aFrame 
+             apiKey:(CPString)apiKey 
+             center:(MKLocation)aLocation 
+        loadingView:(CPString)aLoadingView
+{
+    return [self initWithFrame:aFrame apiKey:apiKey center:aLocation loadingMarkup:nil loadingView:aLoadingView];
+}
+
+- (id)initWithFrame:(CGRect)aFrame 
+             apiKey:(CPString)apiKey 
+             center:(MKLocation)aLocation 
+      loadingMarkup:(CPString)someLoadingMarkup
+        loadingView:(CPString)aLoadingView
 {
     _apiKey = apiKey;
     _center = aLocation;
@@ -77,6 +99,12 @@ MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50
         
         [self setFrameLoadDelegate:self];
         [self loadHTMLStringWithoutMessingUpScrollbars:@"<html><head></head><body style='padding:0px; margin:0px; background-color:transparent'><div id='MKMapViewDiv' style='left: 0px; top: 0px; width: 100%; height: 100%'>" + someLoadingMarkup + "</div></body><script type=\"text/javascript\" src=\"http://www.google.com/jsapi?key=" + _apiKey + "\"></script></html>"];
+        
+        if (aLoadingView)
+        {
+            _loadingView = aLoadingView;
+            [self addSubview:_loadingView];
+        }
     }
 
     return self;
@@ -140,6 +168,10 @@ MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50
     localGmNamespace.Event.addDomListener(document.body, 'mouseup', function() { try { localGmNamespace.Event.trigger(domWin, 'mouseup'); } catch(e){} });
 
     _mapReady = YES;
+    
+    if (_loadingView) {
+        [_loadingView removeFromSuperview];
+    }
     
     if (delegate && [delegate respondsToSelector:@selector(mapViewIsReady:)]) 
     {
