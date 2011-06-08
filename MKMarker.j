@@ -40,6 +40,13 @@
     }
 }
 
+- (void)clickHandler 
+{
+    if (_delegate && [_delegate respondsToSelector: @selector(mapMarkerWasClicked:)]) {
+        [_delegate mapMarkerWasClicked: self];
+    }
+}
+
 /*!
     Sets the icon URL based on this url pattern:
     http://maps.google.com/mapfiles/ms/micons/<anIconName>.png
@@ -180,6 +187,13 @@
     [self setGoogleIcon:anIconName withShadow:YES];
 }
 
+- (void)setIconUrl: (CPString)iconUrl withShadowUrl: (CPString)shadowUrl
+{
+    _withShadow = shadowUrl != nil;
+    _iconUrl = iconUrl;
+    _shadowUrl = shadowUrl;
+}
+
 - (void)openInfoWindow
 {
     if (_gMarker)
@@ -246,6 +260,8 @@
     if (_iconUrl) 
     {
         icon.image = _iconUrl;
+        icon.shadow = nil;
+        icon.shadowSize = nil;
         icon.iconSize = new gm.Size(32, 32);
         icon.iconAnchor = new gm.Point(16, 32);
     }
@@ -257,7 +273,7 @@
         icon.shadowSize = new gm.Size(59, 32);
     }
         
-    var markerOptions = { "icon":icon, "clickable":false, "draggable":_draggable };    
+    var markerOptions = { "icon":icon, "clickable":true, "draggable":_draggable };    
     _gMarker = new gm.Marker([_location googleLatLng], markerOptions);
     
     // add the infowindow html
@@ -277,8 +293,17 @@
     }
 
     gm.Event.addListener(_gMarker, 'dragend', function() { [self updateLocation]; });
+    gm.Event.addListener(_gMarker, 'click', function() { [self clickHandler];});
     googleMap.addOverlay(_gMarker);
 }
+
+
+- (void)removeFromMapView: (MKMapView)mapView
+{
+    var googleMap = [mapView gMap];
+    googleMap.removeOverlay(_gMarker);
+}
+
 
 - (void)encodeWithCoder:(CPCoder)coder
 {
