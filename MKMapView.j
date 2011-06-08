@@ -3,6 +3,7 @@
 @import "MKMarker.j"
 @import "MKLocation.j"
 @import "MKPolyline.j"
+@import "MKBounds.j"
 
 /* a "class" variable that will hold the domWin.google.maps object/"namespace" */
 var gmNamespace = nil;
@@ -220,7 +221,13 @@ MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50
 
 - (MKLocation)center 
 {
-    return _center;
+    if (_mapReady)
+    {
+        var gcenter = _gMap.getCenter();
+        return [[MKLocation alloc] initWithLatLng: gcenter];
+    }
+    else
+        return _center;
 }
 
 - (void)setZoom:(int)aZoomLevel 
@@ -280,6 +287,13 @@ MKLoadingMarkupBlackSpinner = @"<div style='position: absolute; top:50%; left:50
 + (JSObject)gmNamespace 
 {
     return gmNamespace;
+}
+
+
+- (int)getBoundsZoomLevel: (MKBounds)bounds
+{
+    var gbounds = [bounds googleLatLngBounds];
+    return _gMap.getBoundsZoomLevel(gbounds);
 }
 
 @end
