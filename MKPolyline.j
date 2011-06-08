@@ -8,6 +8,8 @@
     CPArray     _locations     @accessors(property=locations);
     CPString    _colorCode     @accessors(property=colorCode);
     int         _lineStroke    @accessors(property=lineStroke);
+    
+    var         _internalPolyline;
 }
 
 + (MKPolyline)polyline
@@ -25,6 +27,8 @@
         _locations = someLocations;
         _colorCode = @"#ff0000";
         _lineStroke = 5;
+        
+        _internalPolyline = nil;
     }
     return self;
 }
@@ -34,7 +38,7 @@
         _locations = [[CPArray alloc] init];
     }
     
-    [_locations addObject:aLocation];
+    [_locations addObject:aLocation];    
 }
 
 - (Polyline)googlePolyline {
@@ -47,10 +51,14 @@
             lineCoordinates.push([loc googleLatLng]);
         }
         
-        return new gm.Polyline(lineCoordinates, _colorCode, _lineStroke);
+        _internalPolyline = new gm.Polyline(lineCoordinates, _colorCode, _lineStroke);
+    }
+    else
+    {
+        _internalPolyline = nil;
     }
     
-    return nil;
+    return _internalPolyline;
 }
 
 - (void)addToMapView:(MKMapView)mapView
@@ -59,6 +67,12 @@
     googleMap.addOverlay([self googlePolyline]);
 }
 
+
+- (void)removeFromMapView: (MKMapView)mapView
+{
+    var googleMap = [mapView gMap];
+    googleMap.removeOverlay(_internalPolyline);    
+}
 
 
 @end
