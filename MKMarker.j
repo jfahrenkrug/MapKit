@@ -14,6 +14,8 @@
     id          _delegate  @accessors(property=delegate);
     CPString    _infoWindowHTML;
     CPDictionary _eventHandlers;
+    
+    id          _userInfo  @accessors(property=userInfo);
 }
 
 + (MKMarker)marker
